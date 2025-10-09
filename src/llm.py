@@ -4,16 +4,27 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv() # Loads environment variables from .env
-token = os.environ["GITHUB_TOKEN"]
+
+# Get token with error handling for Vercel
+token = os.environ.get("GITHUB_TOKEN")
+if not token:
+    print("Warning: GITHUB_TOKEN not set. LLM features will not work.")
+    token = "dummy_token"  # Prevent crashes when token is missing
+
 endpoint = "https://models.github.ai/inference"
 model = "openai/gpt-4.1-mini"
 # A function to call an LLM model and return the response
 def call_llm_model(model, messages, temperature=1.0, top_p=1.0):
-    client = OpenAI(base_url=endpoint,api_key=token)
-    response = client.chat.completions.create(
-    messages=messages,
-    temperature=temperature, top_p=top_p, model=model)
-    return response.choices[0].message.content
+    if token == "dummy_token":
+        raise Exception("GITHUB_TOKEN not configured. Please set it in Vercel environment variables.")
+    try:
+        client = OpenAI(base_url=endpoint,api_key=token)
+        response = client.chat.completions.create(
+        messages=messages,
+        temperature=temperature, top_p=top_p, model=model)
+        return response.choices[0].message.content
+    except Exception as e:
+        raise Exception(f"LLM API call failed: {str(e)}")
 # a function to translate text using the LLM model
 
 system_prompt = r'''
