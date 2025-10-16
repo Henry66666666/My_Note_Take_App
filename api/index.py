@@ -4,7 +4,7 @@ import os
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import Flask, jsonify, send_from_directory, send_file
+from flask import Flask, jsonify, send_from_directory, send_file, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -66,22 +66,160 @@ class Note(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
-# Import routes after app is configured
-try:
-    from src.routes.user import user_bp
-    from src.routes.note import note_bp
-    
-    # Register blueprints
-    app.register_blueprint(user_bp, url_prefix='/api')
-    app.register_blueprint(note_bp, url_prefix='/api')
-    print("✅ Routes registered successfully")
-except Exception as e:
-    print(f"⚠️ Warning: Could not import routes: {e}")
-
 # Create tables
 with app.app_context():
     db.create_all()
     print("✅ Database tables created")
+
+# ====================== API Routes ======================
+
+@app.route('/api/notes', methods=['GET'])
+def get_notes():
+    """Get all notes, ordered by most recently updated"""
+    try:
+        notes = Note.query.order_by(Note.updated_at.desc()).all()
+        return jsonify([note.to_dict() for note in notes])
+    except Exception as e:
+        print(f"Error getting notes: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notes', methods=['POST'])
+def create_note():
+    """Create a new note"""
+    try:
+        data = request.json
+        if not data or 'title' not in data or 'content' not in data:
+            return jsonify({'error': 'Title and content are required'}), 400
+        
+        note = Note(
+            title=data['title'],
+            content=data['content'],
+            tags=','.join(data.get('tags', [])) if isinstance(data.get('tags'), list) else data.get('tags', '')
+        )
+        db.session.add(note)
+        db.session.commit()
+        return jsonify(note.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating note: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notes/<int:note_id>', methods=['GET'])
+def get_note(note_id):
+    """Get a specific note by ID"""
+    try:
+        note = Note.query.get_or_404(note_id)
+        return jsonify(note.to_dict())
+    except Exception as e:
+        print(f"Error getting note {note_id}: {e}")
+        return jsonify({'error': str(e)}), 404
+
+@app.route('/api/notes/<int:note_id>', methods=['PUT'])
+def update_note(note_id):
+    """Update a specific note"""
+    try:
+        note = Note.query.get_or_404(note_id)
+        data = request.json
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        note.title = data.get('title', note.title)
+        note.content = data.get('content', note.content)
+        if 'tags' in data:
+            note.tags = ','.join(data['tags']) if isinstance(data['tags'], list) else data.get('tags', '')
+        
+        db.session.commit()
+        return jsonify(note.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating note {note_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notes/<int:note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    """Delete a specific note"""
+    try:
+        note = Note.query.get_or_404(note_id)
+        db.session.delete(note)
+        db.session.commit()
+        return '', 204
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting note {note_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notes/search', methods=['GET'])
+def search_notes():
+    """Search notes by title or content"""
+    try:
+        query = request.args.get('q', '')
+        if not query:
+            return jsonify([])
+        
+        notes = Note.query.filter(
+            db.or_(
+                Note.title.ilike(f'%{query}%'),
+                Note.content.ilike(f'%{query}%')
+            )
+        ).order_by(Note.updated_at.desc()).all()
+        
+        return jsonify([note.to_dict() for note in notes])
+    except Exception as e:
+        print(f"Error searching notes: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notes/generate', methods=['POST'])
+def generate_note():
+    """Generate a note using AI"""
+    try:
+        data = request.json
+        if not data or 'prompt' not in data:
+            return jsonify({'error': 'Prompt is required'}), 400
+        
+        # Import LLM functions
+        try:
+            from src.llm import extract_structured_notes
+            result = extract_structured_notes(data['prompt'])
+            return jsonify(result), 200
+        except ImportError:
+            return jsonify({'error': 'AI feature not available'}), 503
+        except Exception as llm_error:
+            print(f"LLM error: {llm_error}")
+            return jsonify({'error': f'AI generation failed: {str(llm_error)}'}), 500
+            
+    except Exception as e:
+        print(f"Error generating note: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notes/<int:note_id>/translate', methods=['POST'])
+def translate_note(note_id):
+    """Translate a note to another language"""
+    try:
+        note = Note.query.get_or_404(note_id)
+        data = request.json
+        
+        if not data or 'target_language' not in data:
+            return jsonify({'error': 'Target language is required'}), 400
+        
+        # Import LLM functions
+        try:
+            from src.llm import translate
+            translated_content = translate(note.content, data['target_language'])
+            return jsonify({
+                'original_content': note.content,
+                'translated_content': translated_content,
+                'target_language': data['target_language']
+            })
+        except ImportError:
+            return jsonify({'error': 'Translation feature not available'}), 503
+        except Exception as llm_error:
+            print(f"Translation error: {llm_error}")
+            return jsonify({'error': f'Translation failed: {str(llm_error)}'}), 500
+            
+    except Exception as e:
+        print(f"Error translating note: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # Serve the main HTML page
 @app.route('/')
