@@ -7,6 +7,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
+
+# 🔍 Vercel 环境变量检查 (调试用)
+print("=" * 60)
+print("🔍 Vercel 环境变量检查:")
+DATABASE_URL = os.environ.get('DATABASE_URL')
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
+print(f"DATABASE_URL 存在: {DATABASE_URL is not None}")
+print(f"GITHUB_TOKEN 存在: {GITHUB_TOKEN is not None}")
+if DATABASE_URL:
+    # 仅显示前20个字符以保护隐私
+    print(f"DATABASE_URL 前缀: {DATABASE_URL[:20]}...")
+print("=" * 60)
 
 # 获取项目根目录
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,8 +30,6 @@ app = Flask(__name__)
 CORS(app)
 
 # 配置数据库 - 优先使用 Supabase
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
 if DATABASE_URL:
     # 使用 Supabase PostgreSQL
     # 修复 postgres:// 到 postgresql://
@@ -106,11 +117,27 @@ def serve_static(filename):
     # If not a static file, return 404
     return jsonify({"error": "File not found"}), 404
 
+
 @app.route('/health')
 def health():
+    """健康检查端点 - 返回详细的系统状态"""
+    db_status = "disconnected"
+    db_error = None
+    
+    try:
+        # 尝试执行简单的数据库查询
+        db.session.execute(text('SELECT 1'))
+        db_status = "connected"
+    except Exception as e:
+        db_error = str(e)
+    
     return jsonify({
         "status": "healthy",
         "database": "Supabase PostgreSQL" if DATABASE_URL else "In-memory SQLite",
+        "database_url_exists": DATABASE_URL is not None,
+        "database_status": db_status,
+        "database_error": db_error,
+        "github_token_exists": os.environ.get('GITHUB_TOKEN') is not None,
         "static_dir": STATIC_DIR,
         "static_exists": os.path.exists(STATIC_DIR),
         "index_exists": os.path.exists(os.path.join(STATIC_DIR, 'index.html'))

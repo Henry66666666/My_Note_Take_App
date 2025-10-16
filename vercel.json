@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "api/index.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb"
+      }
     },
     {
       "src": "src/static/**",
@@ -16,16 +19,40 @@
       "dest": "/src/static/favicon.ico"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
+      "src": "/static/(.*)",
+      "dest": "/src/static/$1"
     },
     {
-      "src": "/(.*\\.(css|js|png|jpg|jpeg|gif|svg|ico))",
+      "src": "/api/notes/search",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/api/notes/generate",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/api/notes/(.*)",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/api/notes",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/health",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/(.*\\.(css|js|png|jpg|jpeg|gif|svg|ico|html))",
       "dest": "/src/static/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     }
   ]
 }
