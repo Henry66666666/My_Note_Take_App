@@ -174,14 +174,42 @@ def generate_note():
     """Generate a note using AI"""
     try:
         data = request.json
-        if not data or 'prompt' not in data:
-            return jsonify({'error': 'Prompt is required'}), 400
+        # 支持两种参数格式: prompt 或 text
+        prompt = data.get('prompt') or data.get('text')
+        
+        if not prompt:
+            return jsonify({'error': 'Prompt or text is required'}), 400
         
         # Import LLM functions
         try:
             from src.llm import extract_structured_notes
-            result = extract_structured_notes(data['prompt'])
-            return jsonify(result), 200
+            result = extract_structured_notes(prompt)
+            
+            # 确保返回格式包含前端期望的字段
+            if isinstance(result, str):
+                # 如果返回的是字符串,尝试解析为 JSON
+                import json
+                try:
+                    result = json.loads(result)
+                except:
+                    # 如果解析失败,创建一个标准格式
+                    result = {
+                        'title': 'Generated Note',
+                        'content': result,
+                        'tags': []
+                    }
+            
+            # 创建新笔记并保存到数据库
+            note = Note(
+                title=result.get('title', result.get('Title', 'Generated Note')),
+                content=result.get('content', result.get('notes', result.get('Notes', ''))),
+                tags=','.join(result.get('tags', result.get('Tags', []))) if isinstance(result.get('tags', result.get('Tags', [])), list) else ''
+            )
+            db.session.add(note)
+            db.session.commit()
+            
+            return jsonify(note.to_dict()), 200
+            
         except ImportError:
             return jsonify({'error': 'AI feature not available'}), 503
         except Exception as llm_error:
