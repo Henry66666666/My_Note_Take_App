@@ -2,6 +2,31 @@
 
 A modern, full-stack web application for managing personal notes with AI-powered features, cloud database, and beautiful user interface.
 
+
+## My steps (written by myself)
+- **steps 1**: Import LLM.
+              I used a github LLM(gpt 4.1), which is used for the translation and notes generation function. After I got the token and copied the python scripts supplied by the lab2 slides to this project, I asked AI how to cite it to accomplish the relevant functions, then its agent-mode helped me implement those functions, they were tested in a nice performation as well.
+- **steps 2**: Transplant the database into a cloud database.
+              First, I signed up an postgres account with my github account, then I create a project to get a free cloud datbase. After I get the token and passwards of the cloud database I asked AI to help me change the sqlite database to that cloude base without changing any front end elements, and it's worked.
+- **steps 3**: Deploy the noteapp to verecl
+              I have never deployed any apps to this platform before, So I asked AI to help me do it, it helped me to create a json to suit the platform and taught me how to add token to the vercel environments, After I finished those procedures, the noteapp can be opend directly through the domain link provided by vercel.
+
+
+## Challenges (written by myself)
+1. The step that I try to change the sqlite database to the postgres cloud database is a little bit complex. It's hard to find the settings of the cloud base, which is necessary for the connection between the database and this app.So I scree shotted the interface to let AI know how I can do next step, the it taught me and it worked.
+
+this is the database in supabase platform below
+![database screen shot](./image.png)
+this is the noteapp interface below
+![vercel deployment ](image-1.png)
+
+2. After I deployed I changed some functions, but it can't be opened normally through the domain, I checked almost all the documents, and found it just because of the token path in the vercel was wrong 
+
+
+## Lesson I have learnt (written by myself)
+Through this exercise I mastered how to use AI to resolve the problems encountered in programming. And knew some knowledge about the cloud database and vercel platform. Besides, I found LLM is very useful and it can be emblemed in many scenarios, which means I can make full use of it in after learning career. 
+
+
 ## 🌟 Features
 
 - **📝 Full CRUD Operations**: Create, Read, Update, and Delete notes
